@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import requests
 from bs4 import BeautifulSoup
 import re
+import time
 
 app = Flask(__name__)
 
@@ -22,14 +23,37 @@ def scrape():
         return jsonify({'error': 'Product parameter is required'}), 400
     
     try:
-        # Add headers to mimic a real browser
+        # Add comprehensive headers to mimic a real browser and avoid blocking
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9,hr;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0'
         }
         
-        # Step 1: Search for the product on Elipso search page
+        # Create a session to maintain cookies and connection
+        session = requests.Session()
+        session.headers.update(headers)
+        
+        # Step 1: First visit the main page to establish a session
+        try:
+            main_page = session.get("https://www.elipso.hr/", timeout=10)
+            main_page.raise_for_status()
+        except:
+            pass  # Continue even if main page fails
+        
+        # Step 2: Search for the product on Elipso search page
+        time.sleep(1)  # Small delay to appear more human-like
         search_url = f"https://www.elipso.hr/rezultati/?q={product}"
-        search_response = requests.get(search_url, headers=headers, timeout=10)
+        search_response = session.get(search_url, timeout=10)
         search_response.raise_for_status()
         
         # Parse the search results
@@ -50,8 +74,9 @@ def scrape():
                 'success': False
             }), 404
         
-        # Step 2: Follow the found link and scrape the 2nd <b> tag
-        product_response = requests.get(first_link, headers=headers, timeout=10)
+        # Step 3: Follow the found link and scrape the 2nd <b> tag
+        time.sleep(1)  # Small delay to appear more human-like
+        product_response = session.get(first_link, timeout=10)
         product_response.raise_for_status()
         
         # Parse the product page
